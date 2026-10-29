@@ -349,7 +349,11 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.transport == "sse":
-        mcp.run(transport="sse", port=args.port)
+        # The MCP SDK reads the bind settings from FastMCP.settings.
+        # `run()` accepts only the transport and mount path.
+        mcp.settings.host = "127.0.0.1"
+        mcp.settings.port = args.port
+        mcp.run(transport="sse")
     else:
         mcp.run(transport="stdio")
 
