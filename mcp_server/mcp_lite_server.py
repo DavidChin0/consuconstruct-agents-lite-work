@@ -43,8 +43,15 @@ from typing import Any
 
 import asyncpg
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
-mcp = FastMCP("brain-control-lite")
+# Este server se expone sobre Tailscale (red privada ya autenticada, no
+# internet publico): se desactiva la proteccion DNS-rebinding basada en Host
+# header de FastMCP, que por defecto solo confia en localhost/127.0.0.1.
+mcp = FastMCP(
+    "brain-control-lite",
+    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+)
 
 # Tablas en las que pg_insert/pg_update pueden escribir. Todo lo demas se
 # rechaza — mismo principio que el pg_insert/pg_update reales de ConsuConstruct.
@@ -363,18 +370,39 @@ def main() -> None:
             )
         import uvicorn
         from starlette.applications import Starlette
-        from starlette.middleware.base import BaseHTTPMiddleware
+        from starlette.middleware.trustedhost import TrustedHostMiddleware
+        from starlette.requests import Request
         from starlette.responses import JSONResponse
+        from starlette.types import ASGIApp, Receive, Scope, Send
 
-        class _SharedSecretAuth(BaseHTTPMiddleware):
-            async def dispatch(self, request, call_next):
-                sent = request.headers.get("X-MCP-Lite-Token", "")
-                if sent != token:
-                    return JSONResponse({"error": "unauthorized"}, status_code=401)
-                return await call_next(request)
+        class _SharedSecretAuthASGI:
+            """Middleware ASGI puro (no BaseHTTPMiddleware) para no romper el
+            streaming de SSE -- BaseHTTPMiddleware envuelve la respuesta en un
+            buffer que es incompatible con conexiones SSE de larga duracion."""
+
+            def __init__(self, app: ASGIApp, expected_token: str) -> None:
+                self.app = app
+                self.expected_token = expected_token
+
+            async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+                if scope["type"] != "http":
+                    await self.app(scope, receive, send)
+                    return
+                request = Request(scope, receive=receive)
+                sent = request.headers.get("x-mcp-lite-token", "")
+                if sent != self.expected_token:
+                    response = JSONResponse({"error": "unauthorized"}, status_code=401)
+                    await response(scope, receive, send)
+                    return
+                await self.app(scope, receive, send)
 
         app: Starlette = mcp.sse_app()
-        app.add_middleware(_SharedSecretAuth)
+        # FastMCP/Starlette por defecto solo confia en localhost como Host
+        # header (proteccion DNS-rebinding). Como este server se expone sobre
+        # Tailscale (red privada ya autenticada, no internet publico), se
+        # permiten todos los hosts.
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
+        app = _SharedSecretAuthASGI(app, token)  # type: ignore[assignment]
         uvicorn.run(app, host="0.0.0.0", port=args.port)
     else:
         mcp.run(transport="stdio")
