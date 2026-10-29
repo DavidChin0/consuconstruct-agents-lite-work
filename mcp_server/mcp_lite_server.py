@@ -304,10 +304,17 @@ async def get_loop_state(goal_id: int, events: int = 6) -> dict:
     return {"ok": True, "goal": dict(goal), "bus_last": [dict(r) for r in bus]}
 
 
-# Las notas .md de este kit viven en ./notes/ (relativo a este archivo), NO en
-# el vault de Obsidian de ConsuConstruct — cada instalacion tiene su propio
-# espacio de notas local, sin mezclar con el vault real.
-_NOTES_DIR = Path(__file__).resolve().parent / "notes"
+# NOTAS / VAULT.
+# El write_md/edit_md de este servidor escriben en la carpeta de notes del
+# agente (vault de Obsidian propio de cada instalacion). Por defecto apunta
+# al vault del repo. Sobrescribir con la variable de entorno NOTES_VAULT_DIR;
+# asi cada agente (devops_bot / reviewer) lo apunta a su carpeta respectiva y
+# ninguna nota se mezcla entre agentes.
+_NOTES_VAULT_DIR = os.environ.get("NOTES_VAULT_DIR")
+if _NOTES_VAULT_DIR:
+    _NOTES_DIR = Path(_NOTES_VAULT_DIR).resolve()
+else:
+    _NOTES_DIR = (Path(__file__).resolve().parent / "notes").resolve()
 
 
 def _safe_note_path(note_path: str) -> Path:
@@ -319,8 +326,8 @@ def _safe_note_path(note_path: str) -> Path:
 
 @mcp.tool()
 async def write_md(note_path: str, content: str, create: bool = True) -> dict:
-    """Escribe/crea una nota .md local en ./notes/ (propio de esta instalacion,
-    nunca el vault de ConsuConstruct)."""
+    """Escribe/crea una nota .md dentro del vault del agente (su carpeta de
+    notes), nunca el vault de ConsuConstruct."""
     target = _safe_note_path(note_path)
     if not create and not target.exists():
         return {"ok": False, "error": f"{note_path} no existe y create=False"}
@@ -331,7 +338,8 @@ async def write_md(note_path: str, content: str, create: bool = True) -> dict:
 
 @mcp.tool()
 async def edit_md(note_path: str, title: str, body: str) -> dict:
-    """Anexa una seccion numerada al final de una nota .md local en ./notes/."""
+    """Anexa una seccion numerada al final de una nota .md dentro del vault
+    del agente. Usa antes write_md para crear la nota."""
     target = _safe_note_path(note_path)
     if not target.exists():
         return {"ok": False, "error": f"{note_path} no existe; usa write_md primero"}
