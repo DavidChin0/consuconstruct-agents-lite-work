@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.env
+mailbox/inbox/*.json
+mailbox/sent/*.json
+!mailbox/inbox/.gitkeep
+!mailbox/sent/.gitkeep
