@@ -22,8 +22,12 @@ Config via variables de entorno:
     DATABASE_URL   (postgresql://user:***@host:port/dbname)
     MCP_LITE_PORT  (default 24425 -- distinto del 24424 de ConsuConstruct)
     OLLAMA_URL     (default http://localhost:11434)
+    MCP_LITE_TOKEN (OBLIGATORIO para --transport sse: token compartido,
+                     el cliente lo manda en header X-MCP-Lite-Token; sin
+                     el, el proceso se niega a arrancar)
 
 Uso:
+    export MCP_LITE_TOKEN=$(python -c "import secrets; print(secrets.token_hex(32))")
     python mcp_lite_server.py --transport sse --port 24425
 """
 from __future__ import annotations
@@ -349,7 +353,29 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.transport == "sse":
-        mcp.run(transport="sse", port=args.port)
+        token = os.environ.get("MCP_LITE_TOKEN")
+        if not token:
+            raise SystemExit(
+                "Falta MCP_LITE_TOKEN en el entorno. Exponer este server sin "
+                "token es un endpoint abierto a cualquiera en la red; generar "
+                "uno (ej. `python -c \"import secrets; print(secrets.token_hex(32))\"`) "
+                "y exportarlo antes de correr con --transport sse."
+            )
+        import uvicorn
+        from starlette.applications import Starlette
+        from starlette.middleware.base import BaseHTTPMiddleware
+        from starlette.responses import JSONResponse
+
+        class _SharedSecretAuth(BaseHTTPMiddleware):
+            async def dispatch(self, request, call_next):
+                sent = request.headers.get("X-MCP-Lite-Token", "")
+                if sent != token:
+                    return JSONResponse({"error": "unauthorized"}, status_code=401)
+                return await call_next(request)
+
+        app: Starlette = mcp.sse_app()
+        app.add_middleware(_SharedSecretAuth)
+        uvicorn.run(app, host="0.0.0.0", port=args.port)
     else:
         mcp.run(transport="stdio")
 

@@ -54,22 +54,46 @@ pip install -r requirements.txt
 ## Correr
 
 ```
+export MCP_LITE_TOKEN=$(python -c "import secrets; print(secrets.token_hex(32))")
 python mcp_lite_server.py --transport sse --port 24425
 ```
+
+**El token es obligatorio** para `--transport sse` — sin `MCP_LITE_TOKEN` el
+proceso se niega a arrancar. Guardar el token y compartirlo UNA vez con
+ConsuConstruct por un canal seguro (nunca por el repo ni por chat en texto
+plano permanente) — lo necesitan para su lado del `config.yaml`.
 
 Puerto **24425** (no 24424) a propósito, para no colisionar si alguna vez
 corre en la misma red que el MCP real de ConsuConstruct.
 
+## Exponer el puerto a ConsuConstruct — Tailscale (recomendado)
+
+No abrir el puerto 24425 a internet público. Usar una red privada:
+
+1. Instalar Tailscale (https://tailscale.com) en esta PC y en la PC de
+   ConsuConstruct que se va a conectar.
+2. `tailscale up` en ambas, autenticando con la misma cuenta/tailnet.
+3. Confirmar la IP de Tailscale de esta PC: `tailscale ip -4` (algo como
+   `100.x.x.x`).
+4. Correr el server bindeado a esa interfaz (o a `0.0.0.0`, que ya es el
+   default — Tailscale igual solo lo hace alcanzable desde el tailnet, no
+   desde internet, mientras el firewall local no abra 24425 a la LAN/WAN).
+5. Compartir la IP de Tailscale (no el token, eso aparte) con ConsuConstruct
+   para que la agregue a su `config.yaml`.
+
 ## Registrar en el perfil Hermes
 
-En `config.yaml` del perfil (`devops_bot`/`reviewer` de esta PC):
+En `config.yaml` del perfil (`devops_bot`/`reviewer` de esta PC, o del lado
+de ConsuConstruct que se conecta a ESTE server):
 
 ```yaml
 mcp_servers:
   brain-control-lite:
     enabled: true
     transport: sse
-    url: http://127.0.0.1:24425/sse
+    url: http://<ip-tailscale-de-esta-pc>:24425/sse
+    headers:
+      X-MCP-Lite-Token: "<el mismo MCP_LITE_TOKEN exportado arriba>"
     tools:
       include:
         - agent_send
