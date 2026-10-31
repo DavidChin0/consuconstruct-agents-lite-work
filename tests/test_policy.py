@@ -72,5 +72,28 @@ class TokenTests(unittest.TestCase):
         self.assertFalse(policy.valid_sha("; rm -rf"))
 
 
+class ShaMatchTests(unittest.TestCase):
+    def test_corto_vs_largo(self):
+        full = "9c389ec" + "a" * 33
+        self.assertTrue(policy.sha_matches("9c389ec", full))
+        self.assertTrue(policy.sha_matches(full, "9c389ec"))
+
+    def test_distintos_y_invalidos(self):
+        self.assertFalse(policy.sha_matches("9c389ec", "1234567"))
+        self.assertFalse(policy.sha_matches("9c389ec", "%"))
+        self.assertFalse(policy.sha_matches("9c389ec", ""))
+
+
+class PidAliveTests(unittest.TestCase):
+    def test_pid_propio_vivo_y_pid_inexistente(self):
+        import os
+
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+        import inbox_listener
+
+        self.assertTrue(inbox_listener._pid_alive(os.getpid()))
+        self.assertFalse(inbox_listener._pid_alive(4_000_000))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -68,3 +68,11 @@ def select_is_safe(sql: str, caller: str) -> str | None:
     if "mcp_tokens" in sql.lower() and caller != ORCHESTRATOR:
         return "mcp_tokens solo lo lee claude_code"
     return None
+
+
+def sha_matches(stored: str, query: str) -> bool:
+    """Un sha corto y uno largo del mismo commit cuentan como igual (prefijo, min 7)."""
+    if not (valid_sha(stored) and valid_sha(query)):
+        return False
+    a, b = stored.lower(), query.lower()
+    return a.startswith(b) or b.startswith(a)

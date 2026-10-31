@@ -82,15 +82,36 @@ def _append_pending(msg: dict) -> None:
         fh.write(entry)
 
 
+def _pid_alive(pid: int) -> bool:
+    """Sin os.kill: en Windows os.kill(pid, 0) envia CTRL_C_EVENT y puede matar procesos."""
+    if sys.platform == "win32":
+        import ctypes
+
+        handle = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not handle:
+            return False
+        code = ctypes.c_ulong()
+        ok = ctypes.windll.kernel32.GetExitCodeProcess(handle, ctypes.byref(code))
+        ctypes.windll.kernel32.CloseHandle(handle)
+        return bool(ok) and code.value == 259  # STILL_ACTIVE
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
 def _acquire_lock() -> None:
     INBOX_DIR.mkdir(exist_ok=True)
     if LOCK.exists():
         try:
             pid = int(LOCK.read_text().strip())
-            os.kill(pid, 0)  # vivo -> otro listener corriendo
+        except ValueError:
+            pid = 0  # lock huerfano
+        if pid and pid != os.getpid() and _pid_alive(pid):
             raise SystemExit(f"listener ya corre (pid {pid})")
-        except (ValueError, ProcessLookupError, PermissionError, OSError):
-            pass  # lock huerfano
     LOCK.write_text(str(os.getpid()))
 
 

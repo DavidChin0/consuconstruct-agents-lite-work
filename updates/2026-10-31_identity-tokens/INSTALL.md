@@ -17,13 +17,15 @@ Orden: primero el servidor (lo hace quien lo opera), despues cada PC cliente (Da
 2. Guardar el token propio como variable de usuario (no en archivos del repo):
    - Windows: `setx MCP_LITE_TOKEN "<tu token>"`, `setx MCP_LITE_URL "http://<ip-tailscale>:24425/sse"`,
      `setx MCP_LITE_ROLE "<tu rol>"`. Abrir una terminal nueva.
-3. Config del cliente MCP, con el header `X-MCP-Lite-Token` (ver `docs/clients/`):
+3. Config del cliente MCP (Claude: SSE `/sse`; Codex: streamable HTTP `/mcp`), con el header `X-MCP-Lite-Token` (ver `docs/clients/`):
    - Claude Code (Dane): `docs/clients/claude_settings.example.json`
    - Codex (Hector): `docs/clients/codex_config.example.toml`
 4. Notificaciones: `python scripts/inbox_listener.py --selftest-notify` debe mostrar un aviso.
    Dejarlo vivo: `powershell -ExecutionPolicy Bypass -File scripts\install_listener.ps1 -Url <url> -Role <rol>`
 5. Hooks de sesion (Claude Code): copiar el bloque `hooks` de `docs/clients/claude_settings.example.json`
-   a tu `settings.json`, ajustando la ruta del repo. Requiere `DATABASE_URL` y Ollama con `nomic-embed-text`.
+   a tu `settings.json`, ajustando la ruta del repo. Requiere Ollama con `nomic-embed-text` y `DATABASE_URL` de la base LOCAL de esa PC (el chunker escribe
+   ahi, no en el servidor compartido; chunking por MCP queda pendiente). Los hashes de `mcp_tokens` no
+   son credenciales reutilizables (sha256 de 256 bits aleatorios), por eso el filtro de `pg_select` es defensa extra.
 6. Gate de push: `cp scripts/hooks/pre-push .git/hooks/pre-push`
 
 ## C. Verificar

@@ -509,14 +509,18 @@ async def review_verdict(request_id: int, verdict: str, evidence: str) -> dict:
 
 @mcp.tool()
 async def commit_approval(repo: str, commit_sha: str) -> dict:
-    """Ultimo veredicto registrado para un commit (lo usa el gate pre-push)."""
+    """Ultimo veredicto registrado para un commit (lo usa el gate pre-push).
+    Acepta sha corto o largo (prefijo)."""
+    if not policy.valid_sha(commit_sha):
+        return _denied("commit_sha invalido (7-40 hex)")
     pool = await _get_pool()
     async with pool.acquire() as conn:
-        row = await conn.fetchrow(
-            "SELECT verdict, reviewer, requester, created_at FROM brain.commit_approvals "
-            "WHERE repo=$1 AND commit_sha LIKE $2 || '%' ORDER BY id DESC LIMIT 1",
-            repo, commit_sha,
+        rows = await conn.fetch(
+            "SELECT commit_sha, verdict, reviewer, requester, created_at FROM brain.commit_approvals "
+            "WHERE repo=$1 ORDER BY id DESC LIMIT 200",
+            repo,
         )
+    row = next((r for r in rows if policy.sha_matches(r["commit_sha"], commit_sha)), None)
     return {"ok": True, "approval": dict(row) if row else None}
 
 
