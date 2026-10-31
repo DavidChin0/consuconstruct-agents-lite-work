@@ -5,3 +5,8 @@ mailbox/inbox/*.json
 mailbox/sent/*.json
 !mailbox/inbox/.gitkeep
 !mailbox/sent/.gitkeep
+inbox/pending.md
+inbox/listener.lock
+updates/.applied
+notes/
+*.bak-*

@@ -5,7 +5,11 @@ y necesario para operar devops_bot+reviewer entre PCs), sin NADA de dominio
 de ConsuConstruct (sin HUD, Blender, ETABS, voz, CRM, EstimaStruct). Sin
 NINGUNA dependencia del repo/Postgres de ConsuConstruct.
 
-## Tools expuestas (12)
+> **Actualizado 2026-10-31:** el token compartido `MCP_LITE_TOKEN` ya no existe; hay un token por rol
+> (`scripts/mint_token.py`). Ver `updates/2026-10-31_identity-tokens/INSTALL.md`. Lo de abajo sobre
+> `MCP_LITE_TOKEN` queda como historico.
+
+## Tools expuestas (17)
 
 **Bus / comunicación entre agentes:**
 - `agent_send(from_role, to_role, summary, goal_id=None, message_type="task")`

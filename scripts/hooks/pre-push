@@ -1,0 +1,9 @@
+#!/bin/sh
+# pre-push: solo se empuja lo que claude_reviewer aprobo. Copiar a .git/hooks/pre-push.
+# Requiere MCP_LITE_URL y MCP_LITE_TOKEN en el entorno. Ramas <owner>/<tarea>; main no se toca.
+repo_name=$(basename "$(git rev-parse --show-toplevel)")
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "0000000000000000000000000000000000000000" ] && continue
+  python "$(git rev-parse --show-toplevel)/scripts/verify_approval.py" --repo "$repo_name" --sha "$local_sha" || exit 1
+done
+exit 0

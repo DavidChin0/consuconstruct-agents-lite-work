@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "brain-control-lite": {
+      "type": "sse",
+      "url": "${MCP_LITE_URL}",
+      "headers": { "X-MCP-Lite-Token": "${MCP_LITE_TOKEN}" }
+    }
+  },
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "python C:/RUTA/AL/REPO/scripts/hooks/session_open.py", "timeout": 20 } ] }
+    ],
+    "SessionEnd": [
+      { "hooks": [ { "type": "command", "command": "python C:/RUTA/AL/REPO/scripts/hooks/session_close.py", "timeout": 120 } ] }
+    ],
+    "PreCompact": [
+      { "hooks": [ { "type": "command", "command": "python C:/RUTA/AL/REPO/scripts/hooks/session_close.py", "timeout": 120 } ] }
+    ]
+  }
+}

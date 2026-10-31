@@ -1,0 +1,7 @@
+# Agregar a ~/.codex/config.toml (Hector). El token NO va en el archivo: lo lee de la
+# variable de entorno MCP_LITE_TOKEN.
+# NO VERIFICADO: que tu version de Codex acepte el transporte SSE del servidor lite. Si no lo
+# acepta, avisar para exponer tambien streamable-http o usar un puente stdio (mcp-remote).
+[mcp_servers.brain-control-lite]
+url = "http://<ip-tailscale>:24425/sse"
+env_http_headers = { "X-MCP-Lite-Token" = "MCP_LITE_TOKEN" }
