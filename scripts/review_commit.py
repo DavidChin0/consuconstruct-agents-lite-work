@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """review_commit.py — flujo del rol claude_reviewer (aprueba o rechaza commits).
 
+REGLA: el reviewer corre siempre en Sonnet (REVIEWER_MODEL) y su APPROVE es requisito
+para empujar (scripts/hooks/pre-push).
+
 Corre con el token de claude_reviewer (MCP_LITE_URL, MCP_LITE_TOKEN).
 
   python scripts/review_commit.py --list                          # pedidos pendientes
@@ -30,6 +33,7 @@ import policy  # noqa: E402
 SOUL = Path(__file__).resolve().parents[1] / "profiles" / "claude_reviewer" / "SOUL.md"
 MAX_DIFF_CHARS = 120_000
 CLI_TIMEOUT_S = 600
+REVIEWER_MODEL = "sonnet"  # regla de la casa (David 2026-10-31): el reviewer siempre corre en Sonnet
 _VERDICT_RE = re.compile(r'\{[^{}]*"verdict"[^{}]*\}', re.DOTALL)
 
 
@@ -50,7 +54,7 @@ def build_package(repo: Path, sha: str, summary: str) -> str:
 
 def run_cli(package: str) -> dict:
     proc = subprocess.run(
-        ["claude", "-p", "--allowedTools", "Read,Grep,Glob", "--max-turns", "10"],
+        ["claude", "-p", "--model", REVIEWER_MODEL, "--allowedTools", "Read,Grep,Glob", "--max-turns", "10"],
         input=package, capture_output=True, text=True, timeout=CLI_TIMEOUT_S,
     )
     matches = _VERDICT_RE.findall(proc.stdout)
@@ -60,7 +64,7 @@ def run_cli(package: str) -> dict:
         except json.JSONDecodeError:
             continue
         if str(data.get("verdict", "")).upper() in policy.VERDICTS and data.get("evidence"):
-            return {"verdict": str(data["verdict"]).upper(), "evidence": str(data["evidence"])}
+            return {"verdict": str(data["verdict"]).upper(), "evidence": f"[{REVIEWER_MODEL}] {data['evidence']}"}
     return {"verdict": "REJECT", "evidence": "El revisor automatico no produjo un veredicto valido; "
             f"no se aprueba por defecto. Salida (recorte): {proc.stdout[-300:]!r}"}
 

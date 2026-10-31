@@ -85,11 +85,21 @@ def _caller() -> str:
         pass
     if request is None:
         return os.environ.get("MCP_LITE_ROLE", policy.ORCHESTRATOR)
-    token = request.headers.get("x-mcp-lite-token", "")
+    token = _token_from(request.headers)
     hit = _token_cache.get(policy.hash_token(token))
     if not hit or not hit[0]:
         raise PermissionError("identidad no verificada")
     return hit[0]
+
+
+def _token_from(headers) -> str:
+    """X-MCP-Lite-Token (SSE/Claude) o Authorization: Bearer (Codex streamable HTTP)."""
+    tok = headers.get("x-mcp-lite-token", "")
+    if not tok:
+        auth = headers.get("authorization", "")
+        if auth.lower().startswith("bearer "):
+            tok = auth[7:].strip()
+    return tok
 
 
 def _denied(msg: str) -> dict:
@@ -575,7 +585,7 @@ def main() -> None:
                     await self.app(scope, receive, send)
                     return
                 request = Request(scope, receive=receive)
-                sent = request.headers.get("x-mcp-lite-token", "")
+                sent = _token_from(request.headers)
                 if not sent or await _resolve_token(sent) is None:
                     response = JSONResponse({"error": "unauthorized"}, status_code=401)
                     await response(scope, receive, send)
@@ -583,6 +593,10 @@ def main() -> None:
                 await self.app(scope, receive, send)
 
         app: Starlette = mcp.sse_app()
+        # Codex CLI solo habla streamable HTTP: se sirve tambien en /mcp (mismo puerto, mismo token).
+        http_app = mcp.streamable_http_app()
+        app.router.routes.extend(http_app.routes)
+        app.router.lifespan_context = http_app.router.lifespan_context
         # FastMCP/Starlette por defecto solo confia en localhost como Host
         # header (proteccion DNS-rebinding). Como este server se expone sobre
         # Tailscale (red privada ya autenticada, no internet publico), se
